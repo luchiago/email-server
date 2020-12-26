@@ -1,6 +1,7 @@
 import sqlite3
 
-DB_NAME = 'email-sever.db'
+DB_NAME = "email-sever.db"
+
 
 class DBClient:
     def __init__(self):
