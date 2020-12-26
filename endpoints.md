@@ -13,22 +13,11 @@ Nós temos que completar essas tarefas:
 
 - Será um POST
 - Endpoint: /messages
-- JSON esperado:
-
-```json
-{
-  "sender": <string>,
-  "receiver": <string>,
-  "subject": <string>,
-  "body": <string> 
-}
-```
 
 ## Listar mensagens
 
 - Será um GET
 - Endpoint: /messages
-- JSON da resposta:
 
 ## Apagar mensagens
 
@@ -49,3 +38,8 @@ Nós temos que completar essas tarefas:
 
 - Será um PUT
 - Endpoint: /messages/:id
+
+## Login
+
+- Será um POST
+- Endpoint: /login
