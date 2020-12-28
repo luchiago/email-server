@@ -83,7 +83,7 @@ class CustomHandler(http.server.BaseHTTPRequestHandler):
             )
             raise Exception
         command = (
-            "INSERT INTO message (sender, receiver, subject, body) VALUES (?, ?, ?, ?)"
+            "INSERT INTO public.message (sender, receiver, subject, body) VALUES (%s, %s, %s, %s)"
         )
         values = (
             sender[0],
@@ -177,7 +177,7 @@ class CustomHandler(http.server.BaseHTTPRequestHandler):
                 created_id = self.send_message(
                     sender, receiver, subject, body, "Email respondido"
                 )
-                command = "UPDATE message SET reply = ? WHERE id = ?"
+                command = "UPDATE public.message SET reply = (%s) WHERE id = (%s)"
                 values = (
                     created_id,
                     message_id,
@@ -194,9 +194,9 @@ class CustomHandler(http.server.BaseHTTPRequestHandler):
             _, message_id = self.find_a_message()
             sender, _ = self.verify_users()
             user_id = sender[0]
-            command = "UPDATE message SET receiver = NULL WHERE id = ? AND receiver = ?"
+            command = "UPDATE public.message SET receiver = NULL WHERE id = (%s) AND receiver = (%s)"
             transaction_operation(command, (message_id, user_id))
-            command = "UPDATE message SET sender = NULL WHERE id = ? AND sender = ?"
+            command = "UPDATE public.message SET sender = NULL WHERE id = (%s) AND sender = (%s)"
             transaction_operation(command, (message_id, user_id))
             self.prepare_response(
                 response={"message": "Email deletado"}, status=HTTP_204_NO_CONTENT

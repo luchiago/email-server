@@ -5,7 +5,7 @@ from database import find_user, search_in_database
 
 def get_reply(message_id: Optional[int]):
     if message_id is not None:
-        reply = search_in_database("SELECT * FROM message WHERE id = ?", (message_id,))
+        reply = search_in_database("SELECT * FROM public.message WHERE id = (%s)", (message_id,))
         return format_message(reply)
     return None
 

@@ -1,10 +1,17 @@
-import sqlite3
+import os
 
-DB_NAME = "email-server.db"
+import psycopg2
+
+DB_NAME = os.getenv("DB_NAME", "postgres")
+DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_USER = os.getenv("DB_USER", "postgres")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "password")
 
 
 def connect_to_database():
-    conn = sqlite3.connect(DB_NAME)
+    conn = psycopg2.connect(
+        host=DB_HOST, database=DB_NAME, user=DB_USER, password=DB_PASSWORD
+    )
     cursor = conn.cursor()
     return conn, cursor
 
@@ -26,42 +33,16 @@ def search_in_database(command: str, values: tuple, one: bool = True):
 
 
 def find_user(name: str = None, id: int = -1):
-    sql = "SELECT * FROM user WHERE"
+    sql = "SELECT * FROM public.user WHERE"
     if name is not None:
-        sql += " name LIKE ?"
+        sql += " name LIKE (%s)"
         return search_in_database(command=sql, values=(name,))
-    sql += " id = ?"
+    sql += " id = (%s)"
     return search_in_database(command=sql, values=(id,))
 
 
 def find_message(id: int = -1, receiver: int = -1, sender: int = -1):
-    sql = "SELECT DISTINCT * FROM message WHERE id = ? OR receiver = ? OR sender = ?"
+    sql = "SELECT DISTINCT * FROM public.message WHERE id = (%s) OR receiver = (%s) OR sender = (%s)"
     return search_in_database(
         command=sql, values=(id, receiver, sender), one=(id != -1)
     )
-
-
-def create_table():
-    conn, cursor = connect_to_database()
-    table_user = """
-    CREATE TABLE IF NOT EXISTS "user" (
-        "id" INTEGER PRIMARY KEY,
-        "name" TEXT NOT NULL UNIQUE
-    );
-    """
-    table_message = """
-    CREATE TABLE IF NOT EXISTS "message" (
-        "id" INTEGER PRIMARY KEY,
-        "sender" INTEGER,
-        "receiver" INTEGER,
-        "subject" TEXT NOT NULL,
-        "body" TEXT NOT NULL,
-        "reply" INTEGER,
-        FOREIGN KEY(sender) REFERENCES user(id),
-        FOREIGN KEY(receiver) REFERENCES user(id),
-        FOREIGN KEY(reply) REFERENCES message(id)
-    );
-    """
-    cursor.execute(table_user)
-    cursor.execute(table_message)
-    conn.close()
