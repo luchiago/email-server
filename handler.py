@@ -1,10 +1,16 @@
 import http.server
+from os import name
 import re
 from json import dumps
 from typing import Optional
 
 from database import DBClient
-from status import HTTP_200_OK, HTTP_204_NO_CONTENT, HTTP_404_NOT_FOUND
+from status import (
+    HTTP_200_OK,
+    HTTP_204_NO_CONTENT,
+    HTTP_401_UNAUTHORIZED,
+    HTTP_404_NOT_FOUND,
+)
 
 NOT_FOUND_RESOURCE = "Not found"
 NOT_FOUND_URL = "This URL does not exists"
@@ -62,9 +68,23 @@ class CustomHandler(http.server.BaseHTTPRequestHandler):
             client.search_one(table_name="message", value=message_id, condition="id"),
             message_id,
         )
+    
+    def _get_body_request(self):
+        content_length = int(self.headers['Content-Length'])
+        post_data = self.rfile.read(content_length)
+        return eval(post_data.decode('utf-8'))
+
+
+    def _get_user_from_headers(self):
+        headers = dict(self.headers)
+        return headers.get("user_id")
 
     def do_GET(self):
         if re.search("^/messages/?$", self.path) is not None:
+            user_id = self._get_user_from_headers()
+            if user_id is None:
+                self.prepare_response({"error: Não autorizado"}, HTTP_401_UNAUTHORIZED)
+                return
             as_sender = client.search_all(
                 table_name="message", value=user_id, condition="sender"
             )
@@ -90,7 +110,9 @@ class CustomHandler(http.server.BaseHTTPRequestHandler):
         if re.search("^/messages/?$", self.path) is not None:
             pass
         elif re.search("^/login/?$", self.path) is not None:
-            pass
+            data = self._get_body_request()
+            name = data.get('name')
+            user = client.find_user(name)
         else:
             self.not_found(NOT_FOUND_URL)
         return

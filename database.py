@@ -25,6 +25,9 @@ class DBClient:
         )
         return self.cursor.fetchall()
 
+    def find_user(self, name):
+        return self.search_one('user', name, 'id', 'name')
+
     def create_table(self):
         table_user = """
         CREATE TABLE IF NOT EXISTS "user" (
