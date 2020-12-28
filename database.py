@@ -2,51 +2,61 @@ import sqlite3
 
 DB_NAME = "email-sever.db"
 
+def connect_to_database():
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    return conn, cursor
 
-class DBClient:
-    def __init__(self):
-        self.conn = sqlite3.connect(DB_NAME)
-        self.cursor = self.conn.cursor()
+def transaction_operation(command: str, values: tuple):
+    conn, cursor = connect_to_database()
+    cursor.execute(command, values)
+    conn.commit()
+    conn.close()
 
-    def transaction_operation(self, command, values):
-        self.cursor.execute(command, values)
-        self.conn.commit()
-        self.conn.close()
+def search_in_database(command: str, values: tuple, one: bool = True):
+    conn, cursor = connect_to_database()
+    cursor.execute(command, values)
+    result = cursor.fetchone() if one else cursor.fetchall()
+    conn.close()
+    return result
 
-    def search_one(self, table_name, value, attributes="*", condition="id"):
-        self.cursor.execute(
-            f"SELECT {attributes} FROM {table_name} WHERE {condition} = ?", (value,)
-        )
-        return self.cursor.fetchone()
+def find_user(name: str = None, id: int = -1):
+    sql = "SELECT * FROM user WHERE"
+    if name is not None:
+        sql += " name LIKE ?"
+        return search_in_database(command=sql, values=(name,))
+    sql += " id = ?"
+    return search_in_database(command=sql, values=(id,))
 
-    def search_all(self, table_name, value, attributes="*", condition="id"):
-        self.cursor.execute(
-            f"SELECT {attributes} FROM {table_name} WHERE {condition} = ?", (value,)
-        )
-        return self.cursor.fetchall()
+def find_message(id: int = -1, receiver: int = -1, sender: int = -1):
+    sql = (
+        "SELECT DISTINCT * FROM message WHERE id = ? OR receiver = ? OR sender = ?"
+    )
+    return search_in_database(
+        command=sql, values=(id, receiver, sender), one=(id != -1)
+    )
 
-    def find_user(self, name):
-        return self.search_one('user', name, 'id', 'name')
-
-    def create_table(self):
-        table_user = """
-        CREATE TABLE IF NOT EXISTS "user" (
-            "id" INTEGER PRIMARY KEY,
-            "name" TEXT NOT NULL UNIQUE
-        );
-        """
-        table_message = """
-        CREATE TABLE IF NOT EXISTS "message" (
-            "id" INTEGER PRIMARY KEY,
-            "sender" INTEGER,
-            "receiver" INTEGER,
-            "subject" TEXT NOT NULL,
-            "body" TEXT NOT NULL,
-            "reply" INTEGER,
-            FOREIGN KEY(sender) REFERENCES user(id),
-            FOREIGN KEY(receiver) REFERENCES user(id),
-            FOREIGN KEY(reply) REFERENCES message(id)
-        );
-        """
-        self.cursor.execute(table_user)
-        self.cursor.execute(table_message)
+def create_table():
+    conn, cursor = connect_to_database()
+    table_user = """
+    CREATE TABLE IF NOT EXISTS "user" (
+        "id" INTEGER PRIMARY KEY,
+        "name" TEXT NOT NULL UNIQUE
+    );
+    """
+    table_message = """
+    CREATE TABLE IF NOT EXISTS "message" (
+        "id" INTEGER PRIMARY KEY,
+        "sender" INTEGER,
+        "receiver" INTEGER,
+        "subject" TEXT NOT NULL,
+        "body" TEXT NOT NULL,
+        "reply" INTEGER,
+        FOREIGN KEY(sender) REFERENCES user(id),
+        FOREIGN KEY(receiver) REFERENCES user(id),
+        FOREIGN KEY(reply) REFERENCES message(id)
+    );
+    """
+    cursor.execute(table_user)
+    cursor.execute(table_message)
+    conn.close()
