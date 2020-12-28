@@ -5,13 +5,13 @@ from database import find_user, search_in_database
 
 def get_reply(message_id: Optional[int]):
     if message_id is not None:
-        reply = (search_in_database("SELECT * FROM message WHERE id = ?", message_id),)
+        reply = search_in_database("SELECT * FROM message WHERE id = ?", (message_id,))
         return format_message(reply)
     return None
 
 
-def format_message(message: tuple):
-    reply = get_reply(message[5])
+def format_message(message: tuple, show_reply=True):
+    reply = get_reply(message[5]) if show_reply else None
     sender = find_user(id=message[1])
     receiver = find_user(id=message[2])
     json = {
@@ -28,7 +28,7 @@ def format_message(message: tuple):
 def format_messages(messages: list):
     json = []
     for message in messages:
-        json.append(format_message(message))
+        json.append(format_message(message, show_reply=False))
     return json
 
 
