@@ -1,9 +1,10 @@
 import http.server
+import os
 
 from database import create_table
 from handler import CustomHandler
 
-PORT = 8000
+PORT = int(os.environ.get("PORT", 8000))
 HOST = "0.0.0.0"
 Handler = CustomHandler
 
