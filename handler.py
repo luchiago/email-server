@@ -76,26 +76,34 @@ class CustomHandler(http.server.BaseHTTPRequestHandler):
         subject: str,
         body: str,
         success_message: str,
+        return_id: bool = False
     ):
         if sender[0] == receiver[0]:
             self.prepare_response(
                 {"error": "Não pode ser o mesmo user"}, status=HTTP_400_BAD_REQUEST
             )
             raise Exception
-        command = (
-            "INSERT INTO public.message (sender, receiver, subject, body) VALUES (%s, %s, %s, %s)"
-        )
+        command = "INSERT INTO public.message (sender, receiver, subject, body) VALUES (%s, %s, %s, %s)"
+        if return_id:
+            command += " RETURNING id"
         values = (
             sender[0],
             receiver[0],
             subject,
             body,
         )
-        created_id = transaction_operation(command=command, values=values)
+        created_id = transaction_operation(command=command, values=values, return_id=return_id)
         self.prepare_response(
             response={"message": success_message}, status=HTTP_201_CREATED
         )
         return created_id
+
+    def verify_reply(self, sender):
+        if sender is None:
+            self.prepare_response(
+                {"error": "Usuário deletou a mensagem"}, HTTP_400_BAD_REQUEST
+            )
+            raise Exception
 
     def do_GET(self):
         if re.search("^/messages/?$", self.path) is not None:
@@ -168,24 +176,24 @@ class CustomHandler(http.server.BaseHTTPRequestHandler):
         if re.search("^/messages/(?P<id>\d+)/?$", self.path) is not None:
             try:
                 message, message_id = self.find_a_message()
-                if message[1] is None or message[2] is None:
-                    self.prepare_response({"error": "Usuário deletou a mensagem"}, HTTP_400_BAD_REQUEST)
-                    return
+                sender = message[1]
+                self.verify_reply(sender)
                 message_data = self.get_body_request()
-                sender, _ = self.verify_users()
+                sender = find_user(id=message[1])
                 receiver = find_user(id=message[2])
                 subject = f"RE:{message[3]}"
                 body = message_data.get("body")
                 created_id = self.send_message(
-                    receiver, sender, subject, body, "Email respondido"
+                    receiver, sender, subject, body, "Email respondido", return_id=True
                 )
-                command = "UPDATE public.message SET reply = (%s) WHERE id = (%s)"
+                command = "UPDATE public.message SET reply = %s WHERE id = %s"
                 values = (
                     created_id,
                     message_id,
                 )
                 transaction_operation(command=command, values=values)
-            except Exception:
+            except Exception as e:
+                print(str(e))
                 return
         else:
             self.not_found(NOT_FOUND_URL)

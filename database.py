@@ -16,12 +16,15 @@ def connect_to_database():
     return conn, cursor
 
 
-def transaction_operation(command: str, values: tuple):
+def transaction_operation(command: str, values: tuple, return_id: bool = False):
     conn, cursor = connect_to_database()
     cursor.execute(command, values)
+    id = None
+    if return_id:
+        id = cursor.fetchone()[0]
     conn.commit()
     conn.close()
-    return cursor.lastrowid
+    return id
 
 
 def search_in_database(command: str, values: tuple, one: bool = True):
