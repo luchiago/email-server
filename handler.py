@@ -112,6 +112,40 @@ class CustomHandler(http.server.BaseHTTPRequestHandler):
             self.not_found(NOT_FOUND_URL)
         return
 
+    def do_PATCH(self):
+        if re.search("^/messages/(?P<id>\d+)/?$", self.path) is not None:
+            message_data = self.get_body_request()
+            message, message_id = self.find_a_message()
+            if message is None:
+                self.not_found(NOT_FOUND_RESOURCE)
+                return
+            sender = find_user(name=self.get_user_from_headers())
+            receiver = find_user(name=message_data.get("receiver"))
+            if sender is None or receiver is None:
+                self.not_found(f"Usuário {NOT_FOUND_RESOURCE}")
+                return
+            if sender[0] == receiver[0]:
+                self.prepare_response(
+                    {"error": "Não pode ser o mesmo user"}, status=HTTP_400_BAD_REQUEST
+                )
+                return
+            command = "INSERT INTO message (sender, receiver, subject, body) VALUES (?, ?, ?, ?)"
+            subject = f"ENC:{message[3]}"
+            body = message[4]
+            values = (
+                sender[0],
+                receiver[0],
+                subject,
+                body,
+            )
+            transaction_operation(command=command, values=values)
+            self.prepare_response(
+                response={"message": "Email emcaminhado"}, status=HTTP_201_CREATED
+            )
+        else:
+            self.not_found(NOT_FOUND_URL)
+        return
+
     def do_DELETE(self):
         if re.search("^/messages/(?P<id>\d+)/?$", self.path) is not None:
             message, message_id = self.find_a_message()
