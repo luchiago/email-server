@@ -12,10 +12,12 @@ def get_reply(message_id: Optional[int]):
 
 def format_message(message: tuple):
     reply = get_reply(message[5])
+    sender = find_user(id=message[1])
+    receiver = find_user(id=message[2])
     json = {
         "id": message[0],
-        "sender": find_user(id=message[1])[1],
-        "receiver": find_user(id=message[2])[1],
+        "sender": sender[1] if sender is not None else sender,
+        "receiver": receiver[1] if receiver is not None else receiver,
         "subject": message[3],
         "body": message[4],
         "reply": reply,

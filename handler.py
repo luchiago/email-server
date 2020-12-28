@@ -7,6 +7,7 @@ from formatters import format_message, format_messages, format_user
 from status import (
     HTTP_200_OK,
     HTTP_201_CREATED,
+    HTTP_204_NO_CONTENT,
     HTTP_400_BAD_REQUEST,
     HTTP_401_UNAUTHORIZED,
     HTTP_404_NOT_FOUND,
@@ -107,6 +108,27 @@ class CustomHandler(http.server.BaseHTTPRequestHandler):
                 return
             json = format_user(user)
             self.prepare_response(json)
+        else:
+            self.not_found(NOT_FOUND_URL)
+        return
+
+    def do_DELETE(self):
+        if re.search("^/messages/(?P<id>\d+)/?$", self.path) is not None:
+            message, message_id = self.find_a_message()
+            if message is None:
+                self.not_found(f"Email {NOT_FOUND_RESOURCE}")
+                return
+            user_id = find_user(name=self.get_user_from_headers())
+            if user_id is None:
+                self.not_found(f"Usuário {NOT_FOUND_RESOURCE}")
+                return
+            command = "UPDATE message SET receiver = NULL WHERE id = ? AND receiver = ?"
+            transaction_operation(command, (message_id, user_id[0]))
+            command = "UPDATE message SET sender = NULL WHERE id = ? AND sender = ?"
+            transaction_operation(command, (message_id, user_id[0]))
+            self.prepare_response(
+                response={"message": "Email deletado"}, status=HTTP_204_NO_CONTENT
+            )
         else:
             self.not_found(NOT_FOUND_URL)
         return
