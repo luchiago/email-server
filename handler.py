@@ -2,9 +2,15 @@ import http.server
 import re
 from json import dumps
 
-from database import find_user, transaction_operation
-from formatters import format_user
-from status import HTTP_200_OK, HTTP_201_CREATED, HTTP_404_NOT_FOUND
+from database import find_message, find_user, transaction_operation
+from formatters import format_message, format_messages, format_user
+from status import (
+    HTTP_200_OK,
+    HTTP_201_CREATED,
+    HTTP_400_BAD_REQUEST,
+    HTTP_401_UNAUTHORIZED,
+    HTTP_404_NOT_FOUND,
+)
 
 NOT_FOUND_RESOURCE = "não encontrado"
 NOT_FOUND_URL = "Esta URL não existe"
@@ -14,6 +20,13 @@ class CustomHandler(http.server.BaseHTTPRequestHandler):
     def not_found(self, error_message: str):
         response = {"error": error_message}
         self.prepare_response(response=response, status=HTTP_404_NOT_FOUND)
+
+    def find_a_message(self):
+        message_id = int(re.search("^/messages/(?P<id>\d+)/?$", self.path).groups()[0])
+        return (
+            find_message(id=message_id),
+            message_id,
+        )
 
     def prepare_response(self, response: dict, status: int = HTTP_200_OK):
         response = dumps(response).encode(encoding="utf_8")
@@ -29,20 +42,55 @@ class CustomHandler(http.server.BaseHTTPRequestHandler):
 
     def get_user_from_headers(self):
         headers = dict(self.headers)
-        return headers.get("user_id")
+        return headers.get("user_name")
+
+    def do_GET(self):
+        if re.search("^/messages/?$", self.path) is not None:
+            user_name = self.get_user_from_headers()
+            if user_name is None:
+                self.prepare_response(
+                    response={"error": "Não autorizado"}, status=HTTP_401_UNAUTHORIZED
+                )
+                return
+            user_id = find_user(name=self.get_user_from_headers())
+            if user_id is None:
+                self.not_found(f"Usuário {NOT_FOUND_RESOURCE}")
+                return
+            user_id = user_id[0]
+            as_sender = find_message(sender=user_id)
+            as_receiver = find_message(receiver=user_id)
+            as_sender = format_messages(as_sender)
+            as_receiver = format_messages(as_receiver)
+            messages = {"sent": as_sender, "received": as_receiver}
+            self.prepare_response(messages, HTTP_200_OK)
+        elif re.search("^/messages/(?P<id>\d+)/?$", self.path) is not None:
+            message, _ = self.find_a_message()
+            if message is None:
+                self.not_found(NOT_FOUND_RESOURCE)
+                return
+            message = format_message(message)
+            self.prepare_response(message, HTTP_200_OK)
+        else:
+            self.not_found(NOT_FOUND_URL)
+        return
 
     def do_POST(self):
         if re.search("^/messages/?$", self.path) is not None:
             message_data = self.get_body_request()
-            sender = find_user(id=self.get_user_from_headers())[0]
-            receiver = find_user(name=message_data.get("receiver"))[0]
+            sender = find_user(name=self.get_user_from_headers())
+            receiver = find_user(name=message_data.get("receiver"))
             if sender is None or receiver is None:
                 self.not_found(f"Usuário {NOT_FOUND_RESOURCE}")
                 return
+            if sender[0] == receiver[0]:
+                self.prepare_response(
+                    {"error": "Não pode ser o mesmo user"}, status=HTTP_400_BAD_REQUEST
+                )
+                return
             command = "INSERT INTO message (sender, receiver, subject, body) VALUES (?, ?, ?, ?)"
             values = (
-                sender,
-                receiver,
+                sender[0],
+                receiver[0],
                 message_data.get("subject"),
                 message_data.get("body"),
             )
