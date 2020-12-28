@@ -168,14 +168,16 @@ class CustomHandler(http.server.BaseHTTPRequestHandler):
         if re.search("^/messages/(?P<id>\d+)/?$", self.path) is not None:
             try:
                 message, message_id = self.find_a_message()
+                if message[1] is None or message[2] is None:
+                    self.prepare_response({"error": "Usuário deletou a mensagem"}, HTTP_400_BAD_REQUEST)
+                    return
                 message_data = self.get_body_request()
-                sender, receiver = self.verify_users(
-                    receiver_user=message_data.get("receiver"), verify_receiver=True
-                )
+                sender, _ = self.verify_users()
+                receiver = find_user(id=message[2])
                 subject = f"RE:{message[3]}"
                 body = message_data.get("body")
                 created_id = self.send_message(
-                    sender, receiver, subject, body, "Email respondido"
+                    receiver, sender, subject, body, "Email respondido"
                 )
                 command = "UPDATE public.message SET reply = (%s) WHERE id = (%s)"
                 values = (
