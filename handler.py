@@ -43,7 +43,10 @@ class CustomHandler(http.server.BaseHTTPRequestHandler):
 
     def get_user_from_headers(self):
         headers = dict(self.headers)
-        return headers.get("user_name")
+        user = headers.get("user_name")
+        if user is None:
+            user = headers.get("User_name")
+        return user
 
     def do_GET(self):
         if re.search("^/messages/?$", self.path) is not None:
